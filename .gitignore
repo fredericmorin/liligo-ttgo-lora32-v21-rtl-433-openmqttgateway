@@ -1,0 +1,4 @@
+.venv
+/openmqttgateway
+/openmqttgateway-tmp
+/openmqttgateway.bak

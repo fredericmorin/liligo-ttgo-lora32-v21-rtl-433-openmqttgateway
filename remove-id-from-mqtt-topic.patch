@@ -1,0 +1,31 @@
+diff --git i/main/ZgatewayRTL_433.ino w/main/ZgatewayRTL_433.ino
+index b4fdd722..e4deeeda 100644
+--- i/main/ZgatewayRTL_433.ino
++++ w/main/ZgatewayRTL_433.ino
+@@ -284,14 +284,23 @@ void rtl_433_Callback(char* message) {
+   Log.notice(F("type: %s" CR), type.c_str());
+   String uniqueid;
+ 
+-  const char naming_keys[5][8] = {"type", "model", "subtype", "channel", "id"}; // from rtl_433_mqtt_hass.py
++  // const char naming_keys[5][8] = {"type", "model", "subtype", "channel", "id"}; // from rtl_433_mqtt_hass.py
++  const char naming_keys[4][8] = {"type", "model", "subtype", "channel"}; // from rtl_433_mqtt_hass.py
+   size_t numRows = sizeof(naming_keys) / sizeof(naming_keys[0]);
+   for (int i = 0; i < numRows; i++) {
+     if (RFrtl_433_ESPdata.containsKey(naming_keys[i])) {
+       if (uniqueid == 0) {
+-        uniqueid = RFrtl_433_ESPdata[naming_keys[i]].as<String>(); // Start of the unique id with the first key
++        if (strcmp(naming_keys[i], "channel") == 0) {
++          uniqueid = "CH" + RFrtl_433_ESPdata[naming_keys[i]].as<String>(); // Start of the unique id with the first key
++        } else {
++          uniqueid = RFrtl_433_ESPdata[naming_keys[i]].as<String>(); // Start of the unique id with the first key
++        }
+       } else {
+-        uniqueid = uniqueid + "/" + RFrtl_433_ESPdata[naming_keys[i]].as<String>(); // Following keys
++        if (strcmp(naming_keys[i], "channel") == 0) {
++          uniqueid = uniqueid + "/CH" + RFrtl_433_ESPdata[naming_keys[i]].as<String>(); // Following keys
++        } else {
++          uniqueid = uniqueid + "/" + RFrtl_433_ESPdata[naming_keys[i]].as<String>(); // Following keys
++        }
+       }
+     }
+   }
