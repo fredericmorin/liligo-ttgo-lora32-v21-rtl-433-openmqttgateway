@@ -1,0 +1,84 @@
+diff --git a/main/ZgatewayRTL_433.ino b/main/ZgatewayRTL_433.ino
+index e4deeeda..c67cec15 100644
+--- a/main/ZgatewayRTL_433.ino
++++ b/main/ZgatewayRTL_433.ino
+@@ -106,6 +106,21 @@ void createOrUpdateDeviceRTL_433(const char* id, const char* model, const char*
+   xSemaphoreGive(semaphorecreateOrUpdateDeviceRTL_433);
+ }
+ 
++// Returns true for HA device classes that represent weather station / temperature probe measurements.
++// Only these sensor types receive an expire_after in their discovery config so that Home Assistant
++// marks them "unavailable" after a period of silence rather than keeping stale values.
++static bool isWeatherSensor(const char* device_class) {
++  static const char* weatherClasses[] = {
++    "temperature", "humidity", "pressure",
++    "wind_speed", "precipitation", "precipitation_intensity"
++  };
++  for (const char* cls : weatherClasses) {
++    if (strcmp(device_class, cls) == 0)
++      return true;
++  }
++  return false;
++}
++
+ // This function always should be called from the main core as it generates direct mqtt messages
+ // When overrideDiscovery=true, we publish discovery messages of known RTL_433devices (even if no new)
+ void launchRTL_433Discovery(bool overrideDiscovery) {
+@@ -231,7 +246,9 @@ void launchRTL_433Discovery(bool overrideDiscovery) {
+                             0, //set  off_delay
+                             "", "", false, "", //set,payload_available,payload_not available   ,is a gateway entity, command topic
+                             (char*)idWoKey.c_str(), "", pdevice->modelName, (char*)idWoKey.c_str(), false, // device name, device manufacturer, device model, device ID, retain
+-                            stateClassMeasurement //State Class
++                            stateClassMeasurement, //State Class
++                            nullptr, nullptr, nullptr, nullptr, // state_off, state_on, enum_options, command_template
++                            isWeatherSensor(parameters[i][3]) ? SENSOR_EXPIRY_SECONDS : 0 //expire_after
+             );
+           }
+           pdevice->isDisc = true; // we don't need the semaphore and all the search magic via createOrUpdateDevice
+diff --git a/main/ZmqttDiscovery.ino b/main/ZmqttDiscovery.ino
+index 63addc04..ca8436f3 100644
+--- a/main/ZmqttDiscovery.ino
++++ b/main/ZmqttDiscovery.ino
+@@ -239,7 +239,7 @@ void createDiscovery(const char* sensor_type,
+                      int off_delay,
+                      const char* payload_available, const char* payload_not_available, bool gateway_entity, const char* cmd_topic,
+                      const char* device_name, const char* device_manufacturer, const char* device_model, const char* device_id, bool retainCmd,
+-                     const char* state_class, const char* state_off, const char* state_on, const char* enum_options, const char* command_template) {
++                     const char* state_class, const char* state_off, const char* state_on, const char* enum_options, const char* command_template, int expire_after) {
+   StaticJsonDocument<JSON_MSG_BUFFER_MAX> jsonBuffer;
+   JsonObject sensor = jsonBuffer.to<JsonObject>();
+ 
+@@ -434,6 +434,9 @@ void createDiscovery(const char* sensor_type,
+ 
+   sensor["device"] = device;
+ 
++  if (expire_after > 0)
++    sensor["exp_aft"] = expire_after;
++
+   String topic = String(discovery_prefix) + "/" + String(sensor_type) + "/" + String(unique_id) + "/config";
+   Log.trace(F("Announce Device %s on  %s" CR), String(sensor_type).c_str(), topic.c_str());
+   pub_custom_topic((char*)topic.c_str(), sensor, true);
+diff --git a/main/config_mqttDiscovery.h b/main/config_mqttDiscovery.h
+index 5e67fce5..6782d825 100644
+--- a/main/config_mqttDiscovery.h
++++ b/main/config_mqttDiscovery.h
+@@ -27,6 +27,10 @@
+ #ifndef config_mqttDiscovery_h
+ #define config_mqttDiscovery_h
+ 
++#ifndef SENSOR_EXPIRY_SECONDS
++#  define SENSOR_EXPIRY_SECONDS 1800 // seconds before HA marks a sensor unavailable
++#endif
++
+ extern String getUniqueId(String name, String sufix);
+ extern void pubMqttDiscovery();
+ 
+@@ -88,7 +92,7 @@ extern void createDiscovery(const char* sensor_type,
+                             int off_delay,
+                             const char* payload_available, const char* payload_not_available, bool gateway_entity, const char* command_topic,
+                             const char* device_name, const char* device_manufacturer, const char* device_model, const char* device_mac, bool retainCmd,
+-                            const char* state_class, const char* state_off = nullptr, const char* state_on = nullptr, const char* enum_options = nullptr, const char* command_template = nullptr);
++                            const char* state_class, const char* state_off = nullptr, const char* state_on = nullptr, const char* enum_options = nullptr, const char* command_template = nullptr, int expire_after = 0);
+ 
+ /**
+  * @brief Create a message for Discovery Device Trigger. For HA @see https://www.home-assistant.io/integrations/device_trigger.mqtt/
