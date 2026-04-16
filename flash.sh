@@ -24,5 +24,6 @@ fi
 
 source "$SCRIPT_ROOT/.venv/bin/activate"
 
+set -x
 cd "$SCRIPT_ROOT/openmqttgateway"
-pio run --target upload
+uv run pio run --target upload
