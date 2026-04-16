@@ -17,6 +17,7 @@ if [ ! -e "$SCRIPT_ROOT/openmqttgateway" ]; then
     cd "$SCRIPT_ROOT/openmqttgateway-tmp"
     git checkout c5b9bcb4  # commit when I hacked this a while ago. Not sure patch will apply on newer versions
     git apply "$SCRIPT_ROOT/remove-id-from-mqtt-topic.patch"
+    git apply "$SCRIPT_ROOT/sensor-unavailable-status.patch"
     ln -s -f "../config_env.ini" "config_env.ini"
     cd "$SCRIPT_ROOT"
     mv "$SCRIPT_ROOT/openmqttgateway-tmp" "$SCRIPT_ROOT/openmqttgateway"
